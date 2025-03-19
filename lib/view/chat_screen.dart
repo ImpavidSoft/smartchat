@@ -6,23 +6,7 @@ import '../src/chart_exception.dart';
 import '../src/chat_client.dart';
 import '../src/chat_clients/chat_gpt/chat_gpt_constants.dart';
 import '../src/chat_message.dart';
-
-class ChatGptApp extends StatelessWidget {
-  const ChatGptApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'ChatGPT Flutter Client',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
-      home: const ChatScreen(),
-    );
-  }
-}
-
+import '../src/providers/chat_settings_provider.dart';
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
@@ -37,9 +21,6 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
 
-  // Split view controller
-  double _splitPosition = 0.5; // Initial split at 50%
-
   // Initialize the ChatGptClient
   late final ChatClient _chatClient;
   final List<Map<String, String>> _conversationHistory = [];
@@ -47,27 +28,32 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _initSettings();
+
+    // Listen for focus changes
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus && SharedPrefsHelper().autoScroll) {
+        _scrollToBottom();
+      }
+    });
+  }
+
+  // Initialize settings provider
+  Future<void> _initSettings() async {
 
     // Create the client using our ChatClientBuilder
     final chatClientBuilder = ChatClientProvider.createGptClientBuilder(
       apiKey: ChatGptConstants.apiKey,
-      model: ChatGptConstants.model,
+      model: SharedPrefsHelper().model,
       apiUrl: ChatGptConstants.apiUrl,
     );
 
     _chatClient = chatClientBuilder.build();
 
     // Add system message to initialize the conversation
-    _conversationHistory.add(ChatClient.systemMessage(
-        'You are a helpful assistant that provides concise and accurate information.'
-    ));
-
-    // Listen for focus changes
-    _focusNode.addListener(() {
-      if (_focusNode.hasFocus) {
-        _scrollToBottom();
-      }
-    });
+    _conversationHistory.add(ChatClient.systemMessage( 'You are a helpful assistant that provides concise and accurate information.' ));
+    // Force rebuild with settings
+    setState(() {});
   }
 
   @override
@@ -92,10 +78,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _copyMessageToClipboard(String text) {
     Clipboard.setData(ClipboardData(text: text)).then((_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar( const SnackBar( content: Text('Message copied to clipboard'), duration: Duration(seconds: 2), ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message copied to clipboard'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     });
   }
 
@@ -112,7 +100,9 @@ class _ChatScreenState extends State<ChatScreen> {
       _messageController.clear();
     });
 
-    _scrollToBottom();
+    if (SharedPrefsHelper().autoScroll) {
+      _scrollToBottom();
+    }
 
     try {
       // Add user message to history
@@ -146,7 +136,9 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     }
 
-    _scrollToBottom();
+    if (SharedPrefsHelper().autoScroll) {
+      _scrollToBottom();
+    }
   }
 
   // Show settings dialog
@@ -165,7 +157,7 @@ class _ChatScreenState extends State<ChatScreen> {
               const SizedBox(height: 8),
               ListTile(
                 title: const Text('Model'),
-                subtitle: Text(ChatGptConstants.model),
+                subtitle: Text(SharedPrefsHelper().model),
                 leading: const Icon(Icons.psychology),
                 dense: true,
               ),
@@ -176,13 +168,11 @@ class _ChatScreenState extends State<ChatScreen> {
               SwitchListTile(
                 title: const Text('Auto-scroll'),
                 subtitle: const Text('Automatically scroll to bottom on new messages'),
-                value: true, // You can make this a state variable
-                onChanged: (value) {
-                  // Add functionality to toggle auto-scroll
+                value: SharedPrefsHelper().autoScroll,
+                onChanged: (value) async {
+                  SharedPrefsHelper().autoScroll = value;
                   Navigator.pop(context);
-                  setState(() {
-                    // Update your auto-scroll setting
-                  });
+                  setState(() {});
                 },
                 dense: true,
               ),
@@ -202,7 +192,7 @@ class _ChatScreenState extends State<ChatScreen> {
               const SizedBox(height: 8),
               ListTile(
                 title: const Text('Default Split Position'),
-                subtitle: Text('${(_splitPosition * 100).toStringAsFixed(0)}%'),
+                subtitle: Text('${( SharedPrefsHelper().splitPosition * 100).toStringAsFixed(0)}%'),
                 leading: const Icon(Icons.height),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 dense: true,
@@ -263,7 +253,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Show dialog to adjust split position
   void _showSplitPositionDialog() {
-    double tempSplitPosition = _splitPosition;
+    double tempSplitPosition =  SharedPrefsHelper().splitPosition;
 
     showDialog(
       context: context,
@@ -295,11 +285,10 @@ class _ChatScreenState extends State<ChatScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              setState(() {
-                _splitPosition = tempSplitPosition;
-              });
+              await  SharedPrefsHelper().saveValue('splitPosition', tempSplitPosition);
+              setState(() {});
             },
             child: const Text('Apply'),
           ),
@@ -310,6 +299,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // If settings provider is not initialized yet, show loading
     return Scaffold(
       appBar: AppBar(
         title: const Text('Smart Chat'),
@@ -330,7 +320,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final height = constraints.maxHeight;
-                final splitHeight = height * _splitPosition;
+                final splitHeight = height * SharedPrefsHelper().splitPosition;
 
                 return Stack(
                   children: [
@@ -378,13 +368,13 @@ class _ChatScreenState extends State<ChatScreen> {
                       right: 0,
                       height: 20,
                       child: GestureDetector(
-                        onVerticalDragUpdate: (details) {
-                          setState(() {
-                            _splitPosition += details.delta.dy / height;
-                            // Constrain the split position
-                            if (_splitPosition < 0.2) _splitPosition = 0.2;
-                            if (_splitPosition > 0.8) _splitPosition = 0.8;
-                          });
+                        onVerticalDragUpdate: (details) async {
+                          final newPosition = SharedPrefsHelper().splitPosition + details.delta.dy / height;
+                          // Constrain the split position
+                          if (newPosition >= 0.2 && newPosition <= 0.8) {
+                            SharedPrefsHelper().splitPosition = newPosition;
+                            setState(() {});
+                          }
                         },
                         child: Container(
                           height: 20,
@@ -620,8 +610,7 @@ class _ChatScreenState extends State<ChatScreen> {
         onSubmitted: (text) {
           if (text.isNotEmpty) _sendMessage();
         },
-        // Change from TextInputAction.newline to TextInputAction.send
-        textInputAction: TextInputAction.send,
+        textInputAction: TextInputAction.send, // Use send action for Enter key
         keyboardType: TextInputType.multiline,
       ),
     );

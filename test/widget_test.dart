@@ -13,7 +13,7 @@ import 'package:smart_chat/main.dart';
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(MyApp());
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);
@@ -23,7 +23,15 @@ void main() {
     await tester.tap(find.byIcon(Icons.add));
     await tester.pump();
 
-    // Verify that our counter has incremented.
+    // Verify that our counter has incremented.    signingConfigs {
+    //         release {
+    //             keyAlias keystoreProperties['keyAlias']
+    //             keyPassword keystoreProperties['keyPassword']
+    //             storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+    //             storePassword keystoreProperties['storePassword']
+    //         }
+    //
+    //     }
     expect(find.text('0'), findsNothing);
     expect(find.text('1'), findsOneWidget);
   });
