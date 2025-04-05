@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smart_chat/common/environment.dart';
+
+import '../../common/environment.dart';
 
 /// A singleton class to handle saving and retrieving values from SharedPreferences
 class SharedPrefsHelper {

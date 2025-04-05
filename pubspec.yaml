@@ -1,4 +1,4 @@
-name: smart_chat
+name: smartchat
 description: "A chat_clients client that makes you smarter"
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
