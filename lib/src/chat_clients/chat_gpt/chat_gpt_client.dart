@@ -1,10 +1,10 @@
-import 'package:smart_chat/src/chat_response.dart';
 
 import '../../chart_exception.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../chat_client.dart';
+import '../../chat_response.dart';
 import 'chat_gpt_response.dart';
 
 class ChatGptRequest implements ChatClient {
